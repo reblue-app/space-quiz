@@ -93,6 +93,15 @@
     .stats div + div { border-left: 1px solid var(--line); }
     .stats strong { display: block; font-size: 20px; }
     .stats span { font-size: 11px; color: var(--muted); }
+    .answer-review, .perfect-review { margin-top: 24px; text-align: left; }
+    .answer-review h3 { font-size: 17px; margin: 0 0 12px; }
+    .review-list { display: grid; gap: 12px; margin: 0; padding-left: 24px; }
+    .review-list li { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--option); }
+    .review-list li::marker { color: var(--muted); font-size: 12px; }
+    .review-list h4 { font-size: 14px; line-height: 1.5; margin: 0 0 9px; overflow-wrap: anywhere; }
+    .review-list p { font-size: 12px; line-height: 1.6; margin: 4px 0 0; overflow-wrap: anywhere; }
+    .review-list strong { color: var(--text); }
+    .perfect-review { padding: 13px 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); font-size: 13px; line-height: 1.6; }
     .confetti { position: absolute; top: -12px; width: 7px; height: 12px; border-radius: 2px; pointer-events: none; animation: fall 2.5s ease-in forwards; }
     @keyframes float { 50% { transform: translateY(-6px) rotate(-3deg); } }
     @keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
@@ -138,6 +147,11 @@
       <div class="result-score"><span id="final-score"></span><small> / 10</small></div>
       <div class="result-label">questions answered correctly</div>
       <div class="stats"><div><strong id="accuracy"></strong><span>Accuracy</span></div><div><strong>10</strong><span>Worlds of discovery</span></div></div>
+      <section class="answer-review" id="answer-review" aria-labelledby="answer-review-title" hidden>
+        <h3 id="answer-review-title">Review your missed answers</h3>
+        <ol class="review-list" id="missed-answer-list"></ol>
+      </section>
+      <p class="perfect-review" id="perfect-review" hidden>You answered every question correctly — there are no missed answers to review.</p>
       <button class="primary" id="restart">Explore again &nbsp; ↗</button>
       <p class="hint">The universe always has more to teach us.</p>
     </section>
@@ -252,6 +266,7 @@
     let current = 0;
     let score = 0;
     let answered = false;
+    let missedAnswers = [];
     const progress = document.querySelector(".progress");
     function updateProgress(completed) {
       progress.setAttribute("aria-valuenow", completed);
@@ -293,6 +308,14 @@
       const item = questions[current];
       const correct = index === item.correct;
       if (correct) score++;
+      else {
+        missedAnswers.push({
+          question: item.question,
+          chosenAnswer: item.answers[index],
+          correctAnswer: item.answers[item.correct],
+          explanation: item.explanation
+        });
+      }
       $("score").textContent = score;
       [...$("answers").children].forEach((button, option) => {
         button.disabled = true;
@@ -332,6 +355,28 @@
       $("result-description").textContent = reaction[2];
       $("final-score").textContent = score;
       $("accuracy").textContent = `${score * 10}%`;
+      $("missed-answer-list").replaceChildren();
+      $("answer-review").hidden = missedAnswers.length === 0;
+      $("perfect-review").hidden = missedAnswers.length !== 0;
+      missedAnswers.forEach(missed => {
+        const entry = document.createElement("li");
+        const question = document.createElement("h4");
+        question.textContent = missed.question;
+        const chosenAnswer = document.createElement("p");
+        const chosenLabel = document.createElement("strong");
+        chosenLabel.textContent = "Your answer: ";
+        chosenAnswer.append(chosenLabel, document.createTextNode(missed.chosenAnswer));
+        const correctAnswer = document.createElement("p");
+        const correctLabel = document.createElement("strong");
+        correctLabel.textContent = "Correct answer: ";
+        correctAnswer.append(correctLabel, document.createTextNode(missed.correctAnswer));
+        const explanation = document.createElement("p");
+        const explanationLabel = document.createElement("strong");
+        explanationLabel.textContent = "Explanation: ";
+        explanation.append(explanationLabel, document.createTextNode(missed.explanation));
+        entry.append(question, chosenAnswer, correctAnswer, explanation);
+        $("missed-answer-list").append(entry);
+      });
       $("result-title").focus({ preventScroll: true });
       if (score >= 7) {
         for (let i = 0; i < 24; i++) {
@@ -351,10 +396,13 @@
       else { current++; showQuestion(true); }
     });
     $("restart").addEventListener("click", () => {
-      current = 0; score = 0;
+      current = 0; score = 0; missedAnswers = [];
       $("score").textContent = "0";
       $("results").hidden = true;
       $("quiz").hidden = false;
+      $("answer-review").hidden = true;
+      $("perfect-review").hidden = true;
+      $("missed-answer-list").replaceChildren();
       document.querySelectorAll(".confetti").forEach(piece => piece.remove());
       updateProgress(0);
       showQuestion(true);
